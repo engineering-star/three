@@ -1,0 +1,47 @@
+from math import log2
+from collections import Counter
+import pandas as pd
+dataframe = pd.read_csv('PlayTennis.csv')
+attributes_list = list(dataframe.columns)
+attributes_list.remove('PlayTennis')
+def entropy(subframe):      
+    counter = Counter(subframe)
+    num_instances = len(subframe)     
+    entropy = 0
+    for value in counter.values():
+        probability = value/num_instances
+        entropy = entropy   +  ( -probability * log2(probability) )          
+    return entropy
+total_samples = len(dataframe.index)
+def probability(samples):
+        return len(samples)/total_samples
+def information_gain(dataframe, split_attribute, target_attribute): 
+    frame = dataframe.groupby(split_attribute)
+    aggregate = frame.agg(  [entropy, probability] )
+    aggregate = aggregate[target_attribute]     
+    new_entropy = sum( aggregate['entropy'] * aggregate['probability'] )
+    old_entropy = entropy(dataframe[target_attribute])
+    return old_entropy - new_entropy
+def id3(dataframe, target_attribute, attributes_list, default_class=None):
+    counter = Counter(dataframe[target_attribute])             
+    if len(counter) == 1:
+        return next(iter(counter))     
+    elif dataframe.empty or (not attributes_list):
+        return default_class                                    
+    else:         
+        default_class = max(counter)  
+        gains = []
+        for attribute in attributes_list:
+            gains.append( 
+                            [ information_gain(dataframe, attribute, target_attribute), attribute ]
+                        )  
+        best_attribute = max(gains)[1]                       
+        tree = { best_attribute : {} }    
+        attributes_list.remove(best_attribute)        
+        for attribute_value, data_subset in dataframe.groupby(best_attribute):
+            subtree = id3(data_subset, target_attribute, attributes_list, default_class)
+            tree[best_attribute][attribute_value] = subtree
+        return tree
+tree = id3(dataframe, 'PlayTennis', attributes_list.copy() )    
+from pprint import  pprint
+pprint(tree)
